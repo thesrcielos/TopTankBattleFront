@@ -2,9 +2,9 @@
 import React, { useEffect, useRef } from 'react';
 import Phaser from 'phaser';
 
-import tanqueImg from './assets/tankRed.png';
-import balaImg from './assets/bulletRedSilver.png';
-import enemigoImg from './assets/tankRed.png';
+import tanqueImg from '../public/assets/tankRed.png';
+import balaImg from '../public/assets/bulletRedSilver.png';
+import enemigoImg from '../public/assets/tankRed.png';
 
 const Game: React.FC = () => {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -26,21 +26,29 @@ const Game: React.FC = () => {
         this.load.image('bala', balaImg);
         this.load.image('enemigo', enemigoImg);
         this.load.tilemapTiledJSON('map', './assets/map.json');
-        this.load.image('Barrel1', 'assets/PNG/Obstacles/barrelRed_up.png');
-        this.load.image('Barrel2', 'assets/PNG/Obstacles/barrelGreen_side.png');
-        this.load
+        this.load.image('tiles', './assets/tiles.png');
+        
       }
 
       create() {
-        const map = this.make.tilemap({ key: 'mapa' });
-        const tileset = map.addTilesetImage('nombreDelTilesetEnTiled', 'tiles');
+        this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
+        const map = this.make.tilemap({ key: 'map' });
+        const tileSet = map.addTilesetImage('tiles', 'tiles');
 
-        const groundLayer = map.createLayer('Ground', tileset);
-        const wallsLayer = map.createLayer('Walls', tileset);
+        map.createLayer('Ground', tileSet, 0, 0);
+        const objectLayer = map.createLayer('Objects', tileSet, 0, 0);
+        console.log(objectLayer);
+        objectLayer?.setCollisionByProperty({ collides: true });
 
-        // (opcional) Configurar colisiones
-        wallsLayer.setCollisionByProperty({ collides: true });
-        this.physics.world.convertTilemapLayer(wallsLayer);
+        this.player = this.physics.add.image(30, 30, 'tanque')
+            .setCollideWorldBounds(true)
+            .setScale(0.5);
+        this.player.setVelocity(0);
+        this.player.setMaxVelocity(200);
+        this.cameras.main.startFollow(this.player);
+        this.cameras.main.roundPixels = true;
+        this.physics.add.collider(this.player, objectLayer);
 
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys({
@@ -50,21 +58,16 @@ const Game: React.FC = () => {
         right: Phaser.Input.Keyboard.KeyCodes.D
         });
 
-        this.add.tileSprite(0, 0, 2000, 2000, 'background').setOrigin(0, 0);
-        this.player = this.physics.add.image(30, 30, 'tanque')
-            .setCollideWorldBounds(true)
-            .setScale(0.5);
-        this.player.setVelocity(0);
-        this.player.setMaxVelocity(200);
-
-        this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
-        this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
-        this.cameras.main.startFollow(this.player);
+        
 
         this.cursors = this.input.keyboard.createCursorKeys();
         this.fireKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
         this.bullets = this.physics.add.group({ defaultKey: 'bala', maxSize: 10 });
+
+        this.physics.add.collider(this.bullets, objectLayer, (bullet, tile) => {
+          bullet.destroy();
+        });
 
         this.enemies = this.physics.add.group();
         for (let i = 0; i < 5; i++) {
