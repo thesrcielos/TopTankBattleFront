@@ -1,13 +1,10 @@
 let socket: WebSocket | null = null;
-let messageCallback: ((data: any) => void) | null = null;
 
-export function connectToWebSocket(playerId: string) {
-  socket = new WebSocket("ws://localhost:8080/game");
+export function connectToWebSocket(token: string) {
+  socket = new WebSocket(`ws://localhost:8080/game?token=${token}`);
 
   socket.onopen = () => {
     console.log("✅ Connected WebSocket");
-
-    socket?.send(playerId);
   };
 
   socket.onmessage = (event) => {

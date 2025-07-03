@@ -16,28 +16,31 @@ interface ChatMessage {
 
 
 interface PlayerGame {
-  id: number;
+  id: string;
   username: string;
   isHost: boolean;
-  team: 'red' | 'blue';
-  isReady: boolean;
 }
 
 const RoomLobby: React.FC = () => {
-  const {userId} = useUser();
+  const {userId, getToken} = useUser();
   const room = useGameStore(state => state.room);
   const canStartGame = useGameStore(state => state.canStartGame);
   const setCanStartGame = useGameStore(state => state.setCanStartGame);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState<string>('');
   const navigate = useNavigate();
-  const [currentPlayer] = useState<PlayerGame>({ 
-    id: 1, 
-    username: "TankMaster97", 
-    isHost: room.host.id === userId, 
-    team: 'red',
-    isReady: false
-  });
+  const player = room.team1.find(player => player.id === userId) || room.team2.find(player => player.id === userId);
+    const [currentPlayer] = useState<PlayerGame>(
+      player
+        ? {
+            id: player.id,
+            username: player.username,
+            isHost: player.id === room.host.id,
+          }
+        : {
+            id: '',
+            username: '',
+            isHost: false,
+          }
+    );
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const redTeamPlayers = room.team1;
   const blueTeamPlayers = room.team2;
@@ -46,11 +49,12 @@ const RoomLobby: React.FC = () => {
   const bothTeamsHavePlayers = room.team1.length > 0 && room.team2.length > 0;
   const enoughPlayers = room.players >= 2;
 
+  
   useEffect(() => {
     if (room.id !== '') {
       const playerId = userId || '';
       if (playerId !== '') {
-        connectToWebSocket(playerId);
+        connectToWebSocket(getToken() || "");
       } else {
         alert('User id not found');
         navigate('/rooms');
@@ -58,42 +62,6 @@ const RoomLobby: React.FC = () => {
       }
     }
   }, [room]);
-
-  const handleBalanceTeams = () => {
-    // Add system message
-    const systemMessage: ChatMessage = {
-      id: Date.now(),
-      playerId: 0,
-      username: "System",
-      message: "Teams have been rebalanced!",
-      timestamp: new Date(),
-      isSystem: true
-    };
-    setChatMessages(prev => [...prev, systemMessage]);
-  };
-
-  const handleSwitchTeam = () => {
-    // Implementation for switching teams
-  };
-
-  const handleToggleReady = () => {
-    // Implementation for toggling ready state
-  };
-
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-
-    const message: ChatMessage = {
-      id: Date.now(),
-      playerId: currentPlayer.id,
-      username: currentPlayer.username,
-      message: newMessage.trim(),
-      timestamp: new Date()
-    };
-
-    setChatMessages(prev => [...prev, message]);
-    setNewMessage('');
-  }
 
   const handleStartGame = () => {
     if (!canStartGame) return;
@@ -110,7 +78,6 @@ const RoomLobby: React.FC = () => {
       isSystem: true
     };
     
-    setChatMessages(prev => [...prev, systemMessage]);
     
     // Simulate game start
     setTimeout(() => {
@@ -137,7 +104,6 @@ const RoomLobby: React.FC = () => {
         timestamp: new Date(),
         isSystem: true
       };
-      setChatMessages(prev => [...prev, systemMessage]);
     }
   };
 
@@ -161,15 +127,6 @@ const RoomLobby: React.FC = () => {
                 {players.length}/{Math.ceil(room.capacity / 2)}
               </span>
             </div>
-            {currentPlayer.isHost && (
-              <button
-                onClick={handleBalanceTeams}
-                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
-                title="Balance Teams"
-              >
-                <RotateCcw className="w-5 h-5" />
-              </button>
-            )}
           </div>
         </div>
         <div className="p-6">
@@ -287,18 +244,7 @@ const RoomLobby: React.FC = () => {
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-lg p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {!currentPlayer.isHost ? (
-                  <button
-                    onClick={handleToggleReady}
-                    className={`${
-                      currentPlayer.isReady
-                        ? 'bg-red-600 hover:bg-red-500'
-                        : 'bg-green-600 hover:bg-green-500'
-                    } text-white font-bold px-8 py-3 rounded-lg transition-all duration-300 text-lg`}
-                  >
-                    {currentPlayer.isReady ? 'Not Ready' : 'Ready Up'}
-                  </button>
-                ) : (
+                {currentPlayer.isHost && (
                   <button
                     onClick={handleStartGame}
                     disabled={!canStartGame || isStarting}

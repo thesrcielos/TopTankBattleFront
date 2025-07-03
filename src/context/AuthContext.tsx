@@ -17,6 +17,7 @@ interface UserContextType {
   checkAuth: () => boolean;
   login: () => void;
   logout: () => void;
+  getToken: () => string | undefined;
 }
 
 interface JwtPayload {
@@ -80,6 +81,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     return !!token;
   };
 
+  const getToken = () => {
+    return Cookies.get('token');
+  };
+
   const login = () => setIsAuthenticated(true);
 
   const logout = () => {
@@ -89,7 +94,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   return (
     <UserContext.Provider
-      value={{ userId, setUserId, isAuthenticated, checkAuth, login, logout }}
+      value={{ userId, setUserId, isAuthenticated, checkAuth, login, logout, getToken}}
     >
       {children}
     </UserContext.Provider>
