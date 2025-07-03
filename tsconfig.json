@@ -1,10 +1,19 @@
 {
-  "files": [],
-  "lib": ["es6", "dom", "dom.iterable", "scripthost"],
-  "typeRoots": ["./node_modules/phaser/types"],
-  "types": ["Phaser"],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["es6", "dom", "dom.iterable", "scripthost"],
+    "typeRoots": ["./node_modules/phaser/types"],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["Phaser"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite-env.d.ts"]
 }

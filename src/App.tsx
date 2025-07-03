@@ -1,12 +1,17 @@
 import './App.css'
-import Game from './Game';
+import AppRoutes from './routes/AppRoutes';
+import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
+import { UserProvider } from './context/AuthContext';
 
 function App() {
   return (
-    <div>
-      <h1 style={{ textAlign: 'center' }}>Juego de Tanques</h1>
-      <Game />
-    </div>
+    <UserProvider>
+        <Router>
+          <Routes>          
+              <Route path='/*' element={<AppRoutes/>}/>
+          </Routes>
+        </Router>
+      </UserProvider>
   );
 }
 
