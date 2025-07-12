@@ -20,3 +20,32 @@ export interface Room {
     team2: Player[];
     status: Status;
 }
+
+export interface Game {
+    timestamp: number,
+    players: { [key: string]: PlayerState };
+    bullets: { [key: string]: Bullet };
+}
+
+export interface PlayerState {
+    id: string;
+    position: Position;
+    health: number;
+    team1: boolean;
+}
+
+export interface Bullet {
+    position: Position;
+    speed: number;
+    ownerId: string;
+}
+export interface Position {
+    x: number
+    y: number
+    angle: number
+}
+
+export interface PlayerPosition{
+    playerId: string;
+    position: Position;
+}

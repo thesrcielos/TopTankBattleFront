@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Users, Play, Clock, Shield, Plus } from 'lucide-react';
+import { Search, Users, Play, Clock, Shield, Plus, RotateCcw, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,41 +7,41 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Room } from '@/types/types';
-import { getRooms } from '@/api/RoomApi';
+import { getRooms, joinRoom } from '@/api/RoomApi';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '@/context/AuthContext';
+import { useGameStore } from '@/store/Store';
 
 type RoomStatus = 'LOBBY' | 'PLAYING';
 
 // Component
 const GameRooms: React.FC = () => {
+  const {userId, logout} = useUser();
+  const setRoom = useGameStore(state => state.setRoom)
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState<string>('');
   
   // Sample room data
   const [rooms, setRooms] = useState<Room[]>([]);
 
+  const fetchRooms = async () => {
+    const data = await getRooms();
+    setRooms(data.rooms);
+  };
+
   useEffect(() => {
-    const fetchRooms = async () => {
-      const data = await getRooms();
-      console.log(data);
-      setRooms(data.rooms);
-    };
     fetchRooms();
   }, []);
 
+  const handleRoomsRefresh = () => {
+    fetchRooms();
+  }
   const getStatusVariant = (status: RoomStatus): "default" | "secondary" => {
     return status === 'LOBBY' ? 'default' : 'secondary';
   };
 
   const getStatusIcon = (status: RoomStatus): React.ReactNode => {
     return status === 'LOBBY' ? <Clock className="w-3 h-3" /> : <Play className="w-3 h-3" />;
-  };
-
-  const getProgressColor = (current: number, max: number): string => {
-    const percentage: number = (current / max) * 100;
-    if (percentage >= 80) return 'bg-red-500';
-    if (percentage >= 60) return 'bg-yellow-500';
-    return 'bg-green-500';
   };
 
   const getPlayersTextColor = (current: number, max: number): string => {
@@ -55,9 +55,20 @@ const GameRooms: React.FC = () => {
     setSearchTerm(e.target.value);
   };
 
-  const handleJoinRoom = (roomId: string): void => {
-    // TODO: Implement join room logic
-    console.log(`Joining room ${roomId}`);
+  const handleLogOut = () => {
+    logout();
+  }
+
+  const handleJoinRoom = async (roomId: string) => {
+    try{
+    const room = await joinRoom(userId || "", roomId);
+    console.log(room.room)
+    setRoom(room.room);
+    navigate("/lobby")
+
+    }catch(error){
+      alert("Error joining" + error);
+    }
   };
 
   const handleCreateRoom = (): void => {
@@ -76,13 +87,19 @@ const GameRooms: React.FC = () => {
                 TOP TANK BATTLE
               </h1>
             </div>
+            <div className='flex items-center'>
             <Badge variant="outline" className="border-slate-600 text-slate-300">
-              Available Rooms: {1}
+              Available Rooms: {rooms.length}
             </Badge>
+            <Button onClick={handleLogOut} className='bg-transparent cursor-pointer p-0 ml-4 hover:bg-transparent'>
+                <LogOut className='text-slate-400 h-5 w-5'></LogOut>
+            </Button>
+            </div>
           </div>
           
           {/* Search bar */}
-          <div className="relative max-w-2xl">
+          <div className="flex items-center justify-between">
+            <div className="relative flex-1 max-w-2xl min-w-[200px] max-w-[600px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
               type="text"
@@ -90,9 +107,16 @@ const GameRooms: React.FC = () => {
               value={searchTerm}
               onChange={handleSearchChange}
               className="pl-10 bg-slate-800/50 border-slate-600 text-white placeholder:text-slate-400 
-                       focus:border-orange-500 focus:ring-orange-500/20 h-12"
+                       focus:border-green-500 focus:ring-green-500/20 h-12"
             />
+            </div>
+            <div className="flex flex-1 justify-between">
+              <Button onClick={handleRoomsRefresh} className='hover:bg-transparent ml-2 bg-transparent hover-transparent cursor-pointer p-0'>
+                <RotateCcw className='text-slate-400'></RotateCcw>
+              </Button>
+            </div>
           </div>
+          
         </div>
       </div>
 
@@ -164,7 +188,7 @@ const GameRooms: React.FC = () => {
                 <Button 
                   className={`w-full ${
                     room.status === 'LOBBY'
-                      ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white shadow-lg hover:shadow-green-500/30'
+                      ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white shadow-lg hover:shadow-green-500/30 cursor-pointer'
                       : 'bg-gradient-to-r from-slate-600 to-slate-500 text-slate-300 cursor-not-allowed'
                   }`}
                   disabled={room.status === 'PLAYING'}
@@ -202,7 +226,7 @@ const GameRooms: React.FC = () => {
           size="lg"
           className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 
                    text-white font-bold py-4 px-6 rounded-full shadow-2xl hover:shadow-orange-500/30 
-                   transition-all duration-300 hover:scale-110 gap-2 h-auto"
+                   transition-all duration-300 hover:scale-110 gap-2 h-auto cursor-pointer"
           onClick={handleCreateRoom}
         >
           <Plus className="w-5 h-5" />

@@ -71,7 +71,7 @@ const CreateRoom: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleGoBack}
-              className="text-slate-300 hover:text-white hover:bg-slate-700/50"
+              className="text-slate-300 hover:text-white hover:bg-slate-700/50 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Rooms
@@ -135,7 +135,7 @@ const CreateRoom: React.FC = () => {
                         formData.maxPlayers === num
                           ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/30'
                           : 'border-slate-600 text-slate-300 hover:border-orange-500/50 hover:bg-slate-700/50'
-                      } px-8 py-3 text-lg font-bold transition-all duration-300`}
+                      } px-8 py-3 text-lg font-bold transition-all duration-300 cursor-pointer`}
                     >
                       {num} Players
                     </Button>
@@ -157,7 +157,7 @@ const CreateRoom: React.FC = () => {
                       : 'bg-slate-600 text-slate-400 cursor-not-allowed'
                   } font-bold py-4 px-8 rounded-lg transition-all duration-300 ${
                     isFormValid() ? 'hover:scale-105' : ''
-                  } gap-2 h-auto`}
+                  } gap-2 h-auto cursor-pointer`}
                 >
                   {isCreating ? (
                     <>

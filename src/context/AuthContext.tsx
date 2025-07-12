@@ -18,6 +18,7 @@ interface UserContextType {
   login: () => void;
   logout: () => void;
   getToken: () => string | undefined;
+  setAuth: () => void;
 }
 
 interface JwtPayload {
@@ -41,8 +42,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   };
 
   const handleTokenChanged = () => {
-    console.log("Token changed event triggered");
-    !!Cookies.get('token') ? login() : logout();
+    setAuth();
   };
   
   const setAuth = () => {
@@ -56,6 +56,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
           setIsAuthenticated(true);
         }
       } catch (err) {
+        setUserId(null);
+        setIsAuthenticated(false);
         console.error('Token inválido:', err);
       }
     } else {
@@ -94,7 +96,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
 
   return (
     <UserContext.Provider
-      value={{ userId, setUserId, isAuthenticated, checkAuth, login, logout, getToken}}
+      value={{ userId, setUserId, isAuthenticated, checkAuth, login, logout, getToken, setAuth}}
     >
       {children}
     </UserContext.Provider>

@@ -30,7 +30,7 @@ export const loginUser = async ({ username, password }: AuthCredentials): Promis
   
   export const signup = async ({ username, password }: AuthCredentials): Promise<AuthResponse> => {
     try {
-      const response = await axios.post(`${url}/register`, {
+      const response = await axios.post(`${url}/signup`, {
         username: username,
         password: password
       }, {

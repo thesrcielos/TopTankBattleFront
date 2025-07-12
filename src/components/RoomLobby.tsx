@@ -2,55 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Shield, Crown, Play, UserPlus,  Swords, RotateCcw } from 'lucide-react';
 import { useUser } from '@/context/AuthContext';
 import { useGameStore } from '@/store/Store';
-import { connectToWebSocket } from '@/services/Websocket';
+import { connectToWebSocket, disconnectWS, sendMessage } from '@/services/Websocket';
 import { useNavigate } from 'react-router-dom';
-
-interface ChatMessage {
-  id: number;
-  playerId: number;
-  username: string;
-  message: string;
-  timestamp: Date;
-  isSystem?: boolean;
-}
-
-
-interface PlayerGame {
-  id: string;
-  username: string;
-  isHost: boolean;
-}
+import { leaveRoom } from '@/api/RoomApi';
+import { toast } from 'sonner';
 
 const RoomLobby: React.FC = () => {
   const {userId, getToken} = useUser();
+  const kicked = useGameStore(state => state.kicked);
   const room = useGameStore(state => state.room);
-  const canStartGame = useGameStore(state => state.canStartGame);
-  const setCanStartGame = useGameStore(state => state.setCanStartGame);
+  const game = useGameStore(state => state.game);
+  const setRoom = useGameStore(state => state.setRoom);
   const navigate = useNavigate();
-  const player = room.team1.find(player => player.id === userId) || room.team2.find(player => player.id === userId);
-    const [currentPlayer] = useState<PlayerGame>(
-      player
-        ? {
-            id: player.id,
-            username: player.username,
-            isHost: player.id === room.host.id,
-          }
-        : {
-            id: '',
-            username: '',
-            isHost: false,
-          }
-    );
+  const isHost = room.host.id === userId;
   const [isStarting, setIsStarting] = useState<boolean>(false);
   const redTeamPlayers = room.team1;
   const blueTeamPlayers = room.team2;
 
   const teamsBalanced = Math.abs(redTeamPlayers.length - blueTeamPlayers.length) <= 1;
   const bothTeamsHavePlayers = room.team1.length > 0 && room.team2.length > 0;
-  const enoughPlayers = room.players >= 2;
-
+  const canStartGame = teamsBalanced && bothTeamsHavePlayers;
   
   useEffect(() => {
+    if(kicked?.id === (userId || "")) {
+      toast.info("You were kicked out of the room by the host " + room.host.username);
+      setRoom( {id: '',
+        name: '',
+        capacity: 0,
+        team1: [],
+        players: 0,
+        team2: [],
+        host: {
+            id: '',
+            username: '',
+        },
+        status: "LOBBY",});
+      navigate("/rooms");
+    }else if(kicked !== undefined){
+      toast.info(kicked.username + " was kicked out of the room by the host " + room.host.username);
+    }
+  },[kicked]);
+  
+  useEffect(() => {
+    console.log(room);
     if (room.id !== '') {
       const playerId = userId || '';
       if (playerId !== '') {
@@ -63,49 +57,60 @@ const RoomLobby: React.FC = () => {
     }
   }, [room]);
 
-  const handleStartGame = () => {
-    if (!canStartGame) return;
-    
-    console.log('Starting game...');
-    
-    // Add system message
-    const systemMessage: ChatMessage = {
-      id: Date.now(),
-      playerId: 0,
-      username: "System",
-      message: `Game starting! Red Team (${room.team1.length}) vs Blue Team (${blueTeamPlayers.length})`,
-      timestamp: new Date(),
-      isSystem: true
-    };
-    
-    
-    // Simulate game start
-    setTimeout(() => {
-      setIsStarting(false);
-      alert('Game Started!');
-    }, 5000);
-  };
+  useEffect(() => {
+    if(game !== undefined){
+      setIsStarting(true);
+      
+      navigate("/game");
+    }
+  }, [game])
 
-  const handleLeaveRoom = (): void => {
-    console.log('Leaving room...');
-  };
-
-  const handleKickPlayer = (playerId: string): void => {
-    if (!currentPlayer.isHost) return;
-    
-
-    const kickedPlayer = [...room.team1, ...room.team2].find(p => p.id === playerId.toString());
-    if (kickedPlayer) {
-      const systemMessage: ChatMessage = {
-        id: Date.now(),
-        playerId: 0,
-        username: "System",
-        message: `${kickedPlayer.username} was kicked from the room`,
-        timestamp: new Date(),
-        isSystem: true
-      };
+  const handleLeaveRoom = async () => {
+    try{
+      await leaveRoom(userId || "");
+      disconnectWS();
+      setRoom({
+        id: '',
+        name: '',
+        capacity: 0,
+        team1: [],
+        players: 0,
+        team2: [],
+        host: {
+            id: '',
+            username: '',
+        },
+        status: "LOBBY",
+    })
+      navigate("/rooms");
+    }catch(error){
+      return;
     }
   };
+
+  const handleStartGame = () => {
+    console.log("Starting battle")
+    const msg = {
+      type: "GAME_START",
+      payload: {
+        roomId: room.id
+      },
+    }
+
+    sendMessage(JSON.stringify(msg));
+  }
+
+  const handleKickPlayer = (playerId: string): void => {
+    if (!isHost) return;
+    const kickInfo = {
+      type: "ROOM_KICK",
+      payload: {
+        roomId: room.id,
+        playerId: playerId
+      }
+    }
+    sendMessage(JSON.stringify(kickInfo));
+  }
 
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -143,10 +148,13 @@ const RoomLobby: React.FC = () => {
                       {player.id === room.host.id && (
                         <Crown className="w-5 h-5 text-yellow-400" />
                       )}
+                      {player.id === userId && (
+                        <span className='font-semibold text-white text-xs'>(You)</span>
+                      )}
                     </div>
                   </div>
                   
-                  {currentPlayer.isHost && !(player.id === room.host.id) && (
+                  {isHost && !(player.id === room.host.id) && (
                     <button
                       onClick={() => handleKickPlayer(player.id)}
                       className="text-red-400 hover:text-red-300 px-3 py-1 rounded-md hover:bg-red-500/10 transition-colors font-medium"
@@ -181,7 +189,7 @@ const RoomLobby: React.FC = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleLeaveRoom}
-                className="text-slate-300 hover:text-white hover:bg-slate-700/50 p-1 rounded"
+                className="text-slate-300 hover:text-white hover:bg-slate-700/50 p-1 rounded cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
@@ -244,13 +252,13 @@ const RoomLobby: React.FC = () => {
           <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700 rounded-lg p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                {currentPlayer.isHost && (
+                {isHost && (
                   <button
                     onClick={handleStartGame}
                     disabled={!canStartGame || isStarting}
                     className={`${
                       canStartGame && !isStarting
-                        ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 shadow-lg hover:shadow-green-500/30'
+                        ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 shadow-lg hover:shadow-green-500/30 cursor-pointer'
                         : 'bg-slate-600 text-slate-400 cursor-not-allowed'
                     } text-white font-bold px-8 py-3 rounded-lg transition-all duration-300 flex items-center gap-3 text-lg`}
                   >
@@ -278,7 +286,7 @@ const RoomLobby: React.FC = () => {
                   ) : !bothTeamsHavePlayers ? (
                     <span className="text-yellow-400">👥 Both teams need players</span>
                   ) : (
-                    <span className="text-red-400">❌ Need at least 2 players total</span>
+                    <span className="text-green-400">There are enough players</span>
                   )}
                 </p>
                 <p className="text-sm text-slate-500 mt-1">

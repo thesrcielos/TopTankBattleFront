@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Shield, Target, Users, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Shield, Target, Users, LogIn, CircleX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,11 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { loginUser, signup } from '@/api/UserApi';
-import Cookies from 'js-cookie';
 import { useUser } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { setToken } from '@/context/AuthContext';
-
 
 const TopTankBattleAuth = () => {
   const [activeTab, setActiveTab] = useState('login');
@@ -20,18 +18,16 @@ const TopTankBattleAuth = () => {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [alert, setAlert] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const { checkAuth } = useUser();
+  const { checkAuth, setAuth } = useUser();
   const handleAuthentication = () => {
     navigate("/rooms");
   };
 
   useEffect(() => {
-    console.log(Cookies.get("token"));
     if (checkAuth()) {
-      console.log("login authenticated");
       handleAuthentication();
     }
   }, [checkAuth]);
@@ -40,33 +36,53 @@ const TopTankBattleAuth = () => {
     const data = isLogin ? loginData : registerData;
     
     if (!data.username.trim() || !data.password.trim()) {
-      setAlert({ type: 'error', message: 'Please fill in all fields' });
+      setError("Please fill all the fields")
       return;
     }
 
     setLoading(true);
-    setAlert(null);
+    setError(null);
     
     let response;
     if (isLogin) {
-      response = await loginUser(data);
-      console.log(response);
+      try{
+        response = await loginUser(data);
+      }catch(e: any){
+        setLoading(false);
+        if (e.response.status >= 500){
+          setError("Error, please try again later.")
+        }else{
+          setError(e.response.data.error)
+        }
+        return;
+      }
     } else {
-      response = await signup(data);
-      console.log(response);
+      try{
+        response = await signup(data);
+      }catch(e: any){
+        setLoading(false);
+        if (e.response.status >= 500){
+          setError("Error, please try again later.")
+        }else{
+          setError(e.response.data.error)
+        }
+        return;
+      }
     }
+    
     const token = response.token;
     setToken(token);
+    setAuth();
     if(checkAuth()) {
       handleAuthentication();
     }
   };
 
-  const updateLoginData = (field, value) => {
+  const updateLoginData = (field: string, value: string) => {
     setLoginData(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateRegisterData = (field, value) => {
+  const updateRegisterData = (field: string, value: string) => {
     setRegisterData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -175,7 +191,7 @@ const TopTankBattleAuth = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-green-500 hover:text-green-400"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-green-500 hover:text-green-400 cursor-pointer"
                       >
                         {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </Button>
@@ -185,7 +201,8 @@ const TopTankBattleAuth = () => {
                   <Button
                     onClick={() => handleSubmit(true)}
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-6 text-lg tracking-wide transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-6 text-lg tracking-wide transition-all 
+                    duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl cursor-pointer"
                   >
                     {loading ? (
                       <div className="flex items-center">
@@ -235,7 +252,7 @@ const TopTankBattleAuth = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-green-500 hover:text-green-400"
+                        className="cursor-pointer absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-green-500 hover:text-green-400"
                       >
                         {showRegisterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </Button>
@@ -245,7 +262,8 @@ const TopTankBattleAuth = () => {
                   <Button
                     onClick={() => handleSubmit(false)}
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-6 text-lg tracking-wide transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 cursor-pointer
+                    disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-6 text-lg tracking-wide transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     {loading ? (
                       <div className="flex items-center">
@@ -260,10 +278,11 @@ const TopTankBattleAuth = () => {
               </Tabs>
 
               {/* Alert Messages */}
-              {alert && (
-                <Alert className={`mt-4 ${alert.type === 'success' ? 'border-green-500/50 bg-green-500/10' : 'border-red-500/50 bg-red-500/10'}`}>
-                  <AlertDescription className={alert.type === 'success' ? 'text-green-400' : 'text-red-400'}>
-                    {alert.message}
+              {error && (
+                <Alert className='mt-2 border-red-400 bg-gray-900/50 p-2'>
+                  <AlertDescription className={'text-red-400 flex items-center'}>
+                    <CircleX className='text-red-400 stroke-[1px] mr-1' ></CircleX>
+                    {error}
                   </AlertDescription>
                 </Alert>
               )}

@@ -4,6 +4,7 @@ import PrivateRoute from './PrivateRoute';
 import GameRooms from "@/components/GameRooms";
 import CreateRoom from "@/components/CreateRoom";
 import Room from "@/components/RoomLobby";
+import Game from "@/Game";
 
 const AppRoutes = () =>{
     return (
@@ -13,6 +14,7 @@ const AppRoutes = () =>{
                 <Route path="/rooms" element={<GameRooms/>}/>
                 <Route path="/create-room" element={<CreateRoom/>}/>
                 <Route path="/lobby" element={<Room/>}/>
+                <Route path="/game" element={<Game/>}/>
             </Route>
         </Routes>
     );

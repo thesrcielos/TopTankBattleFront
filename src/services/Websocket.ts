@@ -1,6 +1,9 @@
+import { useGameStore } from "@/store/Store";
+
 let socket: WebSocket | null = null;
 
 export function connectToWebSocket(token: string) {
+  if(socket?.OPEN) return;
   socket = new WebSocket(`ws://localhost:8080/game?token=${token}`);
 
   socket.onopen = () => {
@@ -9,10 +12,20 @@ export function connectToWebSocket(token: string) {
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    console.log("📨 Mensaje recibido:", data);
-
-    if (data.type === "MESSAGE") {
-      console.log("💬 Mensaje del chat:", data.payload);
+    console.log("Received messsage", data);
+    const payload = data.payload;
+    console.log(payload);
+    if (data.type === "ROOM_JOIN") {
+      useGameStore.getState().addPlayer(payload.player, payload.team)
+    }else if(data.type === "ROOM_LEAVE"){
+      useGameStore.getState().removePlayer(payload.player, payload.host)
+    }else if(data.type === "ROOM_KICK"){
+      useGameStore.getState().setKicked(payload.kicked);
+      useGameStore.getState().removeKickedPlayer(payload.kicked)
+    }else if(data.type === "GAME_START"){
+      useGameStore.getState().setGame(payload);
+    }else if(data.type === "MOVE"){
+      useGameStore.getState().updatePlayerPosition(payload);
     }
   };
 
@@ -25,6 +38,10 @@ export function connectToWebSocket(token: string) {
   };
 }
 
+export function disconnectWS() {
+  socket?.close();
+}
+
 export function sendMessage(message: string) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(message);
@@ -32,3 +49,4 @@ export function sendMessage(message: string) {
     console.warn("Message not sent, websocket not connected");
   }
 }
+
