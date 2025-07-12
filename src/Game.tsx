@@ -5,6 +5,7 @@ import { sendMessage } from './services/Websocket';
 
 import tanqueImg from '../public/assets/tankRed.png';
 import balaImg from '../public/assets/bulletRedSilver.png';
+import bala2Img from '../public/assets/bulletBlueSilver.png';
 import tank2Img from '../public/assets/tankBlue.png';
 import { useGameStore } from './store/Store';
 import { useUser } from './context/AuthContext';
@@ -26,6 +27,7 @@ const Game: React.FC = () => {
       wasd!: Phaser.Types.Input.Keyboard.CursorKeys;
       fireKey!: Phaser.Input.Keyboard.Key;
       bullets!: Phaser.Physics.Arcade.Group;
+      otherBullets!: Phaser.Physics.Arcade.Group;
       lastPosition!:{ x: number; y: number; rotation: number } ;
       lastSent = Date.now();
       lastFired = 0;
@@ -33,6 +35,7 @@ const Game: React.FC = () => {
       preload() {
         this.load.image('tanque', tanqueImg);
         this.load.image('bala', balaImg);
+        this.load.image('bala2', bala2Img);
         this.load.image('tanque2',tank2Img );
         this.load.tilemapTiledJSON('map', './assets/map.json');
         this.load.image('tiles', './assets/tiles.png');
@@ -52,7 +55,8 @@ const Game: React.FC = () => {
         const fortressLayer = map.createLayer('Fortress', fortressSet, 0, 0);
         fortressLayer?.setCollisionByProperty({ collides: true });
 
-        this.bullets = this.physics.add.group({ defaultKey: 'bala', maxSize: 10 });
+        this.bullets = this.physics.add.group({ defaultKey: playerState?.team1 ? 'bala' : 'bala2', maxSize: 10 });
+        this.otherBullets = this.physics.add.group({classType: Phaser.Physics.Arcade.Image});
         this.players = {};
 
         for (const playerId in gameState?.players) {
@@ -79,8 +83,9 @@ const Game: React.FC = () => {
         this.physics.add.collider(sprite, objectLayer);
         this.physics.add.collider(sprite, fortressLayer);
 
-        if (playerState?.team1 !== player.team1 && this.bullets && sprite) {
+        if (sprite) {
           this.physics.add.overlap(this.bullets, sprite, this.hitEnemy, undefined, this);
+          this.physics.add.overlap(this.otherBullets, sprite, this.hitEnemy, undefined, this);
         }
       }
 
@@ -105,6 +110,14 @@ const Game: React.FC = () => {
         });
 
         this.physics.add.collider(this.bullets, fortressLayer, (bullet, tile) => {
+          bullet.destroy();
+        });
+
+        this.physics.add.collider(this.otherBullets, objectLayer, (bullet, tile) => {
+          bullet.destroy();
+        });
+
+        this.physics.add.collider(this.otherBullets, fortressLayer, (bullet, tile) => {
           bullet.destroy();
         });
 
@@ -133,16 +146,36 @@ const Game: React.FC = () => {
         }
 
         if (Phaser.Input.Keyboard.JustDown(this.fireKey) && time > this.lastFired) {
-          const bullet = this.bullets.get(this.player.x, this.player.y) as Phaser.Physics.Arcade.Image;
+          const offset = 28;
+          const angle = this.player.rotation;
+          const startX = this.player.x + Math.cos(angle) * offset;
+          const startY = this.player.y + Math.sin(angle) * offset;
+          const bullet = this.bullets.get(startX, startY ) as Phaser.Physics.Arcade.Image;
           if (bullet) {
-            bullet.setActive(true).setVisible(true).setRotation(this.player.rotation).setScale(0.7);
-            bullet.enableBody(true, this.player.x, this.player.y, true, true);
+            bullet.setActive(true).setVisible(true).setRotation(angle).setScale(0.7);
+            bullet.enableBody(true, startX, startY, true, true);
             this.physics.velocityFromRotation(this.player.rotation, 500, bullet.body.velocity);
             this.lastFired = time + 300;
+            sendMessage(JSON.stringify({
+              Type: "SHOOT",
+              Payload: {
+                ownerId: userId,
+                x: startX,
+                y: startY,
+                angle: angle,
+              }
+            }));
           }
         }
 
         this.bullets.children.iterate((b) => {
+          const bullet = b as Phaser.Physics.Arcade.Image;
+          if (bullet.active && (bullet.x < 0 || bullet.x > MAP_WIDTH || bullet.y < 0 || bullet.y > MAP_HEIGHT)) {
+            bullet.setActive(false).setVisible(false);
+          }
+        });
+
+        this.otherBullets.children.iterate((b) => {
           const bullet = b as Phaser.Physics.Arcade.Image;
           if (bullet.active && (bullet.x < 0 || bullet.x > MAP_WIDTH || bullet.y < 0 || bullet.y > MAP_HEIGHT)) {
             bullet.setActive(false).setVisible(false);
@@ -166,15 +199,35 @@ const Game: React.FC = () => {
             sprite.y !== data.y ||
             sprite.rotation !== data.angle
           ) {
-            sprite.setPosition(data.x, data.y);
-            sprite.setRotation(data.angle);
+            const t = 0.2; 
+            sprite.x += (data.x - sprite.x) * t;
+            sprite.y += (data.y - sprite.y) * t;
+
+            const step = 0.2; 
+            sprite.rotation = Phaser.Math.Angle.RotateTo(
+              sprite.rotation,
+              data.angle || 0,
+              step
+            );
           }
+        }          
+
+        const bullets = useGameStore.getState().playersBullets;
+        for(let id in bullets){
+          const data = bullets[id];
+
+          const bullet = this.otherBullets.create(data.position.x, data.position.y , data.team1 ? 'bala' : 'bala2') as Phaser.Physics.Arcade.Image;
+          bullet.enableBody(true, data.position.x, data.position.y, true, true);
+          bullet.rotation = data.position.angle;
+          bullet.setScale(0.7);
+          this.physics.velocityFromRotation(data.position.angle, 500, bullet.body.velocity);
+          useGameStore.getState().removeBullet(id);
         }
 
         const { x, y, rotation } = this.player;
         let now = Date.now();
         if (
-            (now - this.lastSent) > 20 && (
+            (now - this.lastSent) > 50 && (
             x !== this.lastPosition.x ||
             y !== this.lastPosition.y ||
             rotation !== this.lastPosition.rotation
@@ -206,28 +259,36 @@ const Game: React.FC = () => {
       fireMissile(pointer: Phaser.Input.Pointer) {
         if(this.lastFired > this.time.now) return;
         
-        const bullet = this.bullets.get(this.player.x, this.player.y) as Phaser.Physics.Arcade.Image;
+        const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, pointer.worldX, pointer.worldY);
+        const offset = 28;
+        const startX = this.player.x + Math.cos(angle) * offset;
+        const startY = this.player.y + Math.sin(angle) * offset;
+        const bullet = this.bullets.get(startX, startY ) as Phaser.Physics.Arcade.Image;
         if (!bullet) return;
 
         bullet.setActive(true);
         bullet.setVisible(true);
         bullet.setScale(0.7);
 
-        // Posicionar en el tanque
         
-        bullet.enableBody(true, this.player.x, this.player.y, true, true);
-        bullet.setPosition(this.player.x, this.player.y);
+        bullet.enableBody(true, startX, startY, true, true);
+        bullet.setPosition(startX, startY);
 
-        // Calcular ángulo entre tanque y puntero
-        const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, pointer.worldX, pointer.worldY);
-
-        // Apuntar visualmente el misil en esa dirección
         bullet.setRotation(angle);
 
         // Calcular y aplicar velocidad
         const velocity = this.physics.velocityFromRotation(angle, 500);
         bullet.setVelocity(velocity.x, velocity.y);
         this.lastFired = this.time.now + 300; 
+        sendMessage(JSON.stringify({
+          Type: "SHOOT",
+          Payload: {
+            ownerId: userId,
+            x: startX,
+            y: startY,
+            angle: angle,
+          }
+        }));
       }
 
     }

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Player, Room, Game, PlayerPosition, Position } from '@/types/types';
+import { Player, Room, Game, PlayerPosition, Position, PlayerBullet } from '@/types/types';
 
 interface GameStore {
     room: Room;
@@ -7,6 +7,7 @@ interface GameStore {
     game: Game | undefined;
     kicked: Player | undefined;
     playerPositions: Record<string, Position>;
+    playersBullets: Record<string, PlayerBullet>;
     addPlayer: (player: Player, team: number) => void;
     removePlayer: (playerId: string, host: Player) => void;
     removeKickedPlayer: (playerId: string) => void;
@@ -16,6 +17,8 @@ interface GameStore {
     clearMessages: () => void;
     setKicked: (playerId: string) => void;
     updatePlayerPosition: (move: PlayerPosition) => void;
+    addBullet: (id: string,  pos: PlayerBullet) => void;
+    removeBullet: (id: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -36,7 +39,7 @@ export const useGameStore = create<GameStore>((set) => ({
     messages: [],
     game: undefined,
     playerPositions: {},
-
+    playersBullets: {},
     addPlayer: (player: Player, team: number) => set((state) => {
         if (team === 1) {
             return { room: { ...state.room, team1: [...state.room.team1, player] } };
@@ -93,5 +96,16 @@ export const useGameStore = create<GameStore>((set) => ({
             };
         }
         return {};
+    }),
+
+    addBullet: (id: string, position: PlayerBullet) => set((state) => ({
+        playersBullets: {...state.playersBullets, [id]: position}
+    })),
+
+    removeBullet: (id: string) =>
+        set((state) => {
+          const newBullets = { ...state.playersBullets };
+          delete newBullets[id];
+          return { playersBullets: newBullets };
     }),
 }));

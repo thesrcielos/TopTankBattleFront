@@ -26,6 +26,8 @@ export function connectToWebSocket(token: string) {
       useGameStore.getState().setGame(payload);
     }else if(data.type === "MOVE"){
       useGameStore.getState().updatePlayerPosition(payload);
+    }else if(data.type === "SHOOT"){
+      useGameStore.getState().addBullet(payload.id, payload)
     }
   };
 

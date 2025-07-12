@@ -39,6 +39,12 @@ export interface Bullet {
     speed: number;
     ownerId: string;
 }
+
+export interface PlayerBullet {
+    position: Position;
+    team1: boolean;
+}
+
 export interface Position {
     x: number
     y: number
@@ -48,4 +54,5 @@ export interface Position {
 export interface PlayerPosition{
     playerId: string;
     position: Position;
+    targetPosition?: Position;
 }
