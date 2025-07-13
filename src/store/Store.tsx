@@ -8,6 +8,8 @@ interface GameStore {
     kicked: Player | undefined;
     playerPositions: Record<string, Position>;
     playersBullets: Record<string, PlayerBullet>;
+    playerHits: Record<string, number>;
+    deadPlayers: Set<string>;
     addPlayer: (player: Player, team: number) => void;
     removePlayer: (playerId: string, host: Player) => void;
     removeKickedPlayer: (playerId: string) => void;
@@ -19,7 +21,12 @@ interface GameStore {
     updatePlayerPosition: (move: PlayerPosition) => void;
     addBullet: (id: string,  pos: PlayerBullet) => void;
     removeBullet: (id: string) => void;
+    addHit: (id: string, health: number) => void;
+    removeHit: (id: string) => void;
+    addDeadPlayer: (id: string) => void;
+    removeDeadPlayer: (id: string) => void;
 }
+
 
 export const useGameStore = create<GameStore>((set) => ({
     room: {
@@ -40,6 +47,8 @@ export const useGameStore = create<GameStore>((set) => ({
     game: undefined,
     playerPositions: {},
     playersBullets: {},
+    playerHits: {},
+    deadPlayers: new Set(),
     addPlayer: (player: Player, team: number) => set((state) => {
         if (team === 1) {
             return { room: { ...state.room, team1: [...state.room.team1, player] } };
@@ -107,5 +116,28 @@ export const useGameStore = create<GameStore>((set) => ({
           const newBullets = { ...state.playersBullets };
           delete newBullets[id];
           return { playersBullets: newBullets };
+    }),
+
+    addHit: (id: string, health: number) => set((state) => ({
+        playerHits: {...state.playerHits, [id]: health}
+    })),
+
+    removeHit: (id: string) => set((state) => {
+        const newHits = { ...state.playerHits };
+        delete newHits[id];
+        return { playerHits: newHits };
+  }),
+
+  addDeadPlayer: (id: string) =>
+    set((state) => {
+      const updated = new Set(state.deadPlayers);
+      updated.add(id);
+      return { deadPlayers: updated };
+    }),
+  removeDeadPlayer: (id: string) =>
+    set((state) => {
+      const updated = new Set(state.deadPlayers);
+      updated.delete(id);
+      return { deadPlayers: updated };
     }),
 }));

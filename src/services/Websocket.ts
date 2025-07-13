@@ -1,6 +1,7 @@
 import { useGameStore } from "@/store/Store";
 
 let socket: WebSocket | null = null;
+let retryAttempts = 0;
 
 export function connectToWebSocket(token: string) {
   if(socket?.OPEN) return;
@@ -8,6 +9,7 @@ export function connectToWebSocket(token: string) {
 
   socket.onopen = () => {
     console.log("✅ Connected WebSocket");
+    retryAttempts = 0;
   };
 
   socket.onmessage = (event) => {
@@ -28,15 +30,22 @@ export function connectToWebSocket(token: string) {
       useGameStore.getState().updatePlayerPosition(payload);
     }else if(data.type === "SHOOT"){
       useGameStore.getState().addBullet(payload.id, payload)
+    }else if(data.type === "PLAYER_HIT"){
+      useGameStore.getState().addHit(data.payload.playerId, data.payload.health);
+    }else if(data.type === "PLAYER_KILLED"){
+      useGameStore.getState().addDeadPlayer(payload.playerId);
     }
   };
 
   socket.onclose = () => {
-    console.log("🔌 Conexión cerrada");
+    console.warn("🔌 WS closed, retrying...");
+    retryAttempts++;
+    const delay = Math.min(1000 * 2 ** retryAttempts, 15000); // Max 15s
+    setTimeout(() => connectToWebSocket(token), delay);
   };
 
   socket.onerror = (error) => {
-    console.error("❌ Error en WebSocket", error);
+    console.error("❌ Error", error);
   };
 }
 

@@ -17,20 +17,31 @@ const Game: React.FC = () => {
   const {userId} = useUser();
   const gameState = useGameStore(state => state.game);
   const playerState = gameState?.players[userId || ""];
+  const barWidth = 150;
+  const barHeight = 10;
+  const barOtherWidth = 32;
+  const barOtherHeight = 4;
 
   useEffect(() => {
     if(gameState === undefined) return;
     class MainScene extends Phaser.Scene {
       player!: Phaser.Physics.Arcade.Image;
-      players!:{ [key: string]:Phaser.Physics.Arcade.Image};
+      players!:{ [key: string]: {
+          sprite: Phaser.Physics.Arcade.Image;
+          hpBar: Phaser.GameObjects.Rectangle;
+          hpBarBg: Phaser.GameObjects.Rectangle;
+      }};
       cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
       wasd!: Phaser.Types.Input.Keyboard.CursorKeys;
       fireKey!: Phaser.Input.Keyboard.Key;
       bullets!: Phaser.Physics.Arcade.Group;
       otherBullets!: Phaser.Physics.Arcade.Group;
       lastPosition!:{ x: number; y: number; rotation: number } ;
+      hpBar!: Phaser.GameObjects.Rectangle;
+      hpBarBg!: Phaser.GameObjects.Rectangle;
       lastSent = Date.now();
       lastFired = 0;
+      alive = true;
 
       preload() {
         this.load.image('tanque', tanqueImg);
@@ -59,6 +70,24 @@ const Game: React.FC = () => {
         this.otherBullets = this.physics.add.group({classType: Phaser.Physics.Arcade.Image});
         this.players = {};
 
+
+        this.hpBarBg = this.add.rectangle(
+          20,
+          20,
+          barWidth,
+          barHeight,
+          0x000000
+        ).setOrigin(0, 0).setScrollFactor(0);
+
+        // Barra roja
+        this.hpBar = this.add.rectangle(
+          20,
+          20,
+          barWidth,
+          barHeight,
+          0xff0000
+        ).setOrigin(0, 0).setScrollFactor(0);
+
         for (const playerId in gameState?.players) {
           const player = gameState.players[playerId];
           if (!player || !player.position) continue;
@@ -72,16 +101,23 @@ const Game: React.FC = () => {
           .setVelocity(0)
           .setMaxVelocity(200);
 
+          
+          this.physics.add.collider(sprite, objectLayer);
+          this.physics.add.collider(sprite, fortressLayer);
+
           if (playerId === userId) {
             this.player = sprite;
             this.lastPosition = {x: player.position.x, y: player.position.y, rotation: player.position.angle};
+            this.physics.add.overlap(this.otherBullets, sprite, this.hitEnemy, undefined, this);
             continue;
           }
 
-        this.players[playerId] = sprite;
+          const hpBarBg = this.add.rectangle(player.position.x - 16, player.position.y - 30, barOtherWidth, barOtherHeight, 0x000000);
+          const hpBar = this.add.rectangle(player.position.x - 16, player.position.y - 30, barOtherWidth, barOtherHeight, 0xff0000);
+          hpBarBg.setOrigin(0, 0);
+          hpBar.setOrigin(0, 0);
 
-        this.physics.add.collider(sprite, objectLayer);
-        this.physics.add.collider(sprite, fortressLayer);
+        this.players[playerId] = {sprite, hpBarBg, hpBar};
 
         if (sprite) {
           this.physics.add.overlap(this.bullets, sprite, this.hitEnemy, undefined, this);
@@ -91,9 +127,6 @@ const Game: React.FC = () => {
 
         this.cameras.main.startFollow(this.player);
         this.cameras.main.roundPixels = true;
-        this.physics.add.collider(this.player, objectLayer);
-        this.physics.add.collider(this.player, fortressLayer);
-
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys({
           up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -145,7 +178,7 @@ const Game: React.FC = () => {
             this.player.setVelocity(0, 0);
         }
 
-        if (Phaser.Input.Keyboard.JustDown(this.fireKey) && time > this.lastFired) {
+        if (Phaser.Input.Keyboard.JustDown(this.fireKey) && time > this.lastFired && this.alive) {
           const offset = 28;
           const angle = this.player.rotation;
           const startX = this.player.x + Math.cos(angle) * offset;
@@ -182,35 +215,7 @@ const Game: React.FC = () => {
           }
         });
 
-        const players = useGameStore.getState().playerPositions;
-
-        for (const id in players) {
-          if (id === userId) continue;
-
-          const data = players[id];
-          let sprite = this.players[id];
-          if (!sprite) {
-            sprite = this.physics.add.image(data.x, data.y, "player");
-            this.players[id] = sprite;
-          }
-
-          if (
-            sprite.x !== data.x ||
-            sprite.y !== data.y ||
-            sprite.rotation !== data.angle
-          ) {
-            const t = 0.2; 
-            sprite.x += (data.x - sprite.x) * t;
-            sprite.y += (data.y - sprite.y) * t;
-
-            const step = 0.2; 
-            sprite.rotation = Phaser.Math.Angle.RotateTo(
-              sprite.rotation,
-              data.angle || 0,
-              step
-            );
-          }
-        }          
+        this.updatePlayers();
 
         const bullets = useGameStore.getState().playersBullets;
         for(let id in bullets){
@@ -222,6 +227,34 @@ const Game: React.FC = () => {
           bullet.setScale(0.7);
           this.physics.velocityFromRotation(data.position.angle, 500, bullet.body.velocity);
           useGameStore.getState().removeBullet(id);
+        }
+
+        const hits = useGameStore.getState().playerHits;
+        for (let playerId in hits) {
+          const percentage = Phaser.Math.Clamp(hits[playerId] / 60, 0, 1);
+          if(playerId === userId){
+            this.hpBar.width = barWidth*percentage;
+            useGameStore.getState().removeHit(playerId);
+            continue;
+          }
+          let {hpBar} = this.players[playerId];
+          hpBar.width = barOtherWidth*percentage;
+          useGameStore.getState().removeHit(playerId);
+        }
+
+        const deadPlayers = useGameStore.getState().deadPlayers;
+        for(let playerId of deadPlayers){
+          if(playerId === userId){
+            this.player.disableBody(true, true);
+            this.hpBar.width = 0;
+            this.alive = false;
+            continue;
+          }
+
+          let {sprite, hpBar, hpBarBg} = this.players[playerId];
+          sprite.disableBody(true, true);
+          hpBar.setVisible(false);
+          hpBarBg.setVisible(false);
         }
 
         const { x, y, rotation } = this.player;
@@ -250,6 +283,47 @@ const Game: React.FC = () => {
 
       }
 
+      updatePlayers() {
+        const players = useGameStore.getState().playerPositions;
+      
+        for (const id in players) {
+          if (id === userId) continue;
+      
+          const data = players[id];
+          let { sprite, hpBarBg, hpBar } = this.players[id];
+      
+          if (!sprite) {
+            sprite = this.physics.add.image(data.x, data.y, "player");
+            this.players[id].sprite = sprite;
+          }
+      
+          if (
+            sprite.x !== data.x ||
+            sprite.y !== data.y ||
+            sprite.rotation !== data.angle
+          ) {
+            const t = 0.2;
+            sprite.x += (data.x - sprite.x) * t;
+            sprite.y += (data.y - sprite.y) * t;
+      
+            const offsetX = -16;
+            const offsetY = -30;
+            hpBarBg.x = sprite.x + offsetX;
+            hpBarBg.y = sprite.y + offsetY;
+            hpBar.x = sprite.x + offsetX;
+            hpBar.y = sprite.y + offsetY;
+      
+            const step = 0.2;
+            sprite.rotation = Phaser.Math.Angle.RotateTo(
+              sprite.rotation,
+              data.angle || 0,
+              step
+            );
+          }
+        }
+      }
+      
+
       hitEnemy = (enemy: Phaser.GameObjects.GameObject, bullet: Phaser.GameObjects.GameObject) => {
         const b = bullet as Phaser.Physics.Arcade.Image;
         const e = enemy as Phaser.Physics.Arcade.Image;
@@ -257,7 +331,7 @@ const Game: React.FC = () => {
       };
 
       fireMissile(pointer: Phaser.Input.Pointer) {
-        if(this.lastFired > this.time.now) return;
+        if(this.lastFired > this.time.now || !this.alive) return;
         
         const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, pointer.worldX, pointer.worldY);
         const offset = 28;
