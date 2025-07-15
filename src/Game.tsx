@@ -36,7 +36,7 @@ const Game: React.FC = () => {
           hpBarBg: Phaser.GameObjects.Rectangle;
       }};
       cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-      wasd!: Phaser.Types.Input.Keyboard.CursorKeys;
+      wasd!: any;
       fireKey!: Phaser.Input.Keyboard.Key;
       bullets!: Phaser.Physics.Arcade.Group;
       otherBullets!: Phaser.Physics.Arcade.Group;
@@ -68,10 +68,11 @@ const Game: React.FC = () => {
         const map = this.make.tilemap({ key: 'map' });
         const tileSet = map.addTilesetImage('tiles', 'tiles');
         const fortressSet = map.addTilesetImage('fortress', 'fortress');
-
+        if(!tileSet) return;
         map.createLayer('Ground', tileSet, 0, 0);
         const objectLayer = map.createLayer('Objects', tileSet, 0, 0);
         objectLayer?.setCollisionByProperty({ collides: true });
+        if(!fortressSet) return;
         const fortressLayer = map.createLayer('Fortress', fortressSet, 0, 0);
         fortressLayer?.setCollisionByProperty({ collides: true });
 
@@ -143,8 +144,10 @@ const Game: React.FC = () => {
           .setMaxVelocity(200);
 
           sprite.setData("playerId", playerId)
-          this.physics.add.collider(sprite, objectLayer);
-          this.physics.add.collider(sprite, fortressLayer);
+          if(objectLayer && fortressLayer){
+            this.physics.add.collider(sprite, objectLayer);
+            this.physics.add.collider(sprite, fortressLayer);
+          }
 
           if (playerId === userId) {
             this.player = sprite;
@@ -168,17 +171,20 @@ const Game: React.FC = () => {
 
         this.cameras.main.startFollow(this.player);
         this.cameras.main.roundPixels = true;
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.wasd = this.input.keyboard.addKeys({
-          up: Phaser.Input.Keyboard.KeyCodes.W,
-          down: Phaser.Input.Keyboard.KeyCodes.S,
-          left: Phaser.Input.Keyboard.KeyCodes.A,
-          right: Phaser.Input.Keyboard.KeyCodes.D
-        });
+        if(this.input.keyboard){
+          this.cursors = this.input.keyboard.createCursorKeys();
+          this.wasd = this.input.keyboard.addKeys({
+            up: Phaser.Input.Keyboard.KeyCodes.W,
+            down: Phaser.Input.Keyboard.KeyCodes.S,
+            left: Phaser.Input.Keyboard.KeyCodes.A,
+            right: Phaser.Input.Keyboard.KeyCodes.D
+          });
+        
 
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.fireKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
+          this.cursors = this.input.keyboard.createCursorKeys();
+          this.fireKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      }
+      if(objectLayer && fortressLayer){
         this.physics.add.collider(this.bullets, objectLayer, (bullet, tile) => {
           bullet.destroy();
         });
@@ -194,6 +200,7 @@ const Game: React.FC = () => {
         this.physics.add.collider(this.otherBullets, fortressLayer, (bullet, tile) => {
           bullet.destroy();
         });
+      }
 
         this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             this.fireMissile(pointer);
@@ -227,9 +234,9 @@ const Game: React.FC = () => {
         }
 
         if (this.cursors.up?.isDown || this.wasd.up?.isDown) {
-            this.physics.velocityFromRotation(this.player.rotation, speed, this.player.body.velocity);
+            this.physics.velocityFromRotation(this.player.rotation, speed, this.player.body?.velocity);
         } else if (this.cursors.down?.isDown || this.wasd.down?.isDown) {
-            this.physics.velocityFromRotation(this.player.rotation, -speed, this.player.body.velocity);
+            this.physics.velocityFromRotation(this.player.rotation, -speed, this.player.body?.velocity);
         } else {
             this.player.setVelocity(0, 0);
         }
@@ -243,7 +250,7 @@ const Game: React.FC = () => {
           if (bullet) {
             bullet.setActive(true).setVisible(true).setRotation(angle).setScale(0.7);
             bullet.enableBody(true, startX, startY, true, true);
-            this.physics.velocityFromRotation(this.player.rotation, 500, bullet.body.velocity);
+            this.physics.velocityFromRotation(this.player.rotation, 500, bullet.body?.velocity);
             this.lastFired = time + 350;
             sendMessage(JSON.stringify({
               Type: "SHOOT",
@@ -263,6 +270,7 @@ const Game: React.FC = () => {
           if (bullet.active && (bullet.x < 0 || bullet.x > MAP_WIDTH || bullet.y < 0 || bullet.y > MAP_HEIGHT)) {
             bullet.setActive(false).setVisible(false);
           }
+          return null;
         });
 
         this.otherBullets.children.iterate((b) => {
@@ -270,6 +278,7 @@ const Game: React.FC = () => {
           if (bullet.active && (bullet.x < 0 || bullet.x > MAP_WIDTH || bullet.y < 0 || bullet.y > MAP_HEIGHT)) {
             bullet.setActive(false).setVisible(false);
           }
+          return null;
         });
       }
 
@@ -329,7 +338,7 @@ const Game: React.FC = () => {
           bullet.enableBody(true, data.position.x, data.position.y, true, true);
           bullet.rotation = data.position.angle;
           bullet.setScale(0.7);
-          this.physics.velocityFromRotation(data.position.angle, 500, bullet.body.velocity);
+          this.physics.velocityFromRotation(data.position.angle, 500, bullet.body?.velocity);
       
           useGameStore.getState().removeBullet(id);
         }
@@ -473,7 +482,7 @@ const Game: React.FC = () => {
         setTimeout(() => {navigate("/lobby")}, 5000);
       }
 
-      hitEnemy = (enemy: Phaser.GameObjects.GameObject, bullet: Phaser.GameObjects.GameObject) => {
+      hitEnemy = (enemy: any, bullet: any) => {
         const b = bullet as Phaser.Physics.Arcade.Image;
         const e = enemy as Phaser.Physics.Arcade.Image;
         const ownerId = b.getData("ownerId");

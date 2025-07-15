@@ -13,7 +13,7 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "types": ["Phaser"]
+    "types": [""]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite-env.d.ts"]
 }
