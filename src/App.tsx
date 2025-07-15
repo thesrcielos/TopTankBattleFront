@@ -1,12 +1,19 @@
 import './App.css'
-import Game from './Game';
+import AppRoutes from './routes/AppRoutes';
+import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
+import { UserProvider } from './context/AuthContext';
+import { Toaster } from "@/components/ui/sonner"
 
 function App() {
-  return (
-    <div>
-      <h1 style={{ textAlign: 'center' }}>Juego de Tanques</h1>
-      <Game />
-    </div>
+   return (
+    <UserProvider>
+        <Router>
+          <Routes>          
+              <Route path='/*' element={<AppRoutes/>}/>
+          </Routes>
+        </Router>
+        <Toaster position='top-right'/>
+    </UserProvider>
   );
 }
 
