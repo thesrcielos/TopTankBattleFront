@@ -14,13 +14,14 @@ export function connectToWebSocket(token: string) {
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    console.log("Received messsage", data);
+    console.log(data);
     const payload = data.payload;
-    console.log(payload);
     if (data.type === "ROOM_JOIN") {
       useGameStore.getState().addPlayer(payload.player, payload.team)
     }else if(data.type === "ROOM_LEAVE"){
       useGameStore.getState().removePlayer(payload.player, payload.host)
+    }else if(data.type === "ROOM_INFO"){
+      useGameStore.getState().setRoom(payload)
     }else if(data.type === "ROOM_KICK"){
       useGameStore.getState().setKicked(payload.kicked);
       useGameStore.getState().removeKickedPlayer(payload.kicked)
@@ -34,6 +35,13 @@ export function connectToWebSocket(token: string) {
       useGameStore.getState().addHit(data.payload.playerId, data.payload.health);
     }else if(data.type === "PLAYER_KILLED"){
       useGameStore.getState().addDeadPlayer(payload.playerId);
+    }else if(data.type === "PLAYER_REVIVED"){
+      useGameStore.getState().addRevivedPlayer(payload.playerId, payload.position);
+    }else if(data.type === "FORTRESS_HIT"){
+      let id = payload.team1 ? 1: 2;
+      useGameStore.getState().addFortressHit(id, payload.health);
+    }else if(data.type === "GAME_OVER"){
+      useGameStore.getState().setGameOver(payload.team1 ? 1 : 2);
     }
   };
 

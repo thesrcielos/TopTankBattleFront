@@ -61,6 +61,7 @@ const RoomLobby: React.FC = () => {
     if(game !== undefined){
       setIsStarting(true);
       
+      setIsStarting(false);
       navigate("/game");
     }
   }, [game])
@@ -89,7 +90,6 @@ const RoomLobby: React.FC = () => {
   };
 
   const handleStartGame = () => {
-    console.log("Starting battle")
     const msg = {
       type: "GAME_START",
       payload: {
@@ -111,10 +111,6 @@ const RoomLobby: React.FC = () => {
     }
     sendMessage(JSON.stringify(kickInfo));
   }
-
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
 
   const TeamCard: React.FC<{ team: 'red' | 'blue', players: any[] }> = ({ team, players }) => {
     const teamColor = team === 'red' ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600';

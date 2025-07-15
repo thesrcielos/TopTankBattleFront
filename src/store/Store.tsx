@@ -3,20 +3,20 @@ import { Player, Room, Game, PlayerPosition, Position, PlayerBullet } from '@/ty
 
 interface GameStore {
     room: Room;
-    messages: string[];
     game: Game | undefined;
     kicked: Player | undefined;
     playerPositions: Record<string, Position>;
     playersBullets: Record<string, PlayerBullet>;
     playerHits: Record<string, number>;
     deadPlayers: Set<string>;
+    revivedPlayers: Record<string, Position>;
+    fortressHits: Record<number, number>;
+    gameOver: number | undefined;
     addPlayer: (player: Player, team: number) => void;
     removePlayer: (playerId: string, host: Player) => void;
     removeKickedPlayer: (playerId: string) => void;
     setRoom: (room: Room) => void;
-    addMessage: (message: string) => void;
-    setGame: (game: Game) => void;
-    clearMessages: () => void;
+    setGame: (game: Game | undefined) => void;
     setKicked: (playerId: string) => void;
     updatePlayerPosition: (move: PlayerPosition) => void;
     addBullet: (id: string,  pos: PlayerBullet) => void;
@@ -25,6 +25,12 @@ interface GameStore {
     removeHit: (id: string) => void;
     addDeadPlayer: (id: string) => void;
     removeDeadPlayer: (id: string) => void;
+    addRevivedPlayer: (id: string, position: Position) => void;
+    removeRevivedPlayer: (id: string) => void;
+    addFortressHit: (id: number, health: number) => void;
+    removeFortressHit: (id: number) => void;
+    setGameOver: (team: number) => void;
+    clearGameOver: () => void;
 }
 
 
@@ -43,12 +49,14 @@ export const useGameStore = create<GameStore>((set) => ({
         status: "LOBBY",
     },
     kicked: undefined,
-    messages: [],
     game: undefined,
     playerPositions: {},
     playersBullets: {},
     playerHits: {},
     deadPlayers: new Set(),
+    revivedPlayers: {},
+    fortressHits: {},
+    gameOver: undefined,
     addPlayer: (player: Player, team: number) => set((state) => {
         if (team === 1) {
             return { room: { ...state.room, team1: [...state.room.team1, player] } };
@@ -76,12 +84,8 @@ export const useGameStore = create<GameStore>((set) => ({
 
     setRoom: (room: Room) => set({ room: room }),
 
-    addMessage: (message: string) =>
-        set((state) => ({ messages: [...state.messages, message] })),
 
-    clearMessages: () => set({ messages: [] }),
-
-    setGame: (game: Game) => set({ game: game }),
+    setGame: (game: Game | undefined) => set({ game: game }),
 
     setKicked: (playerId: string) => set((state) => ({
         kicked: state.room.team1.find(p => p.id === playerId) ||
@@ -140,4 +144,37 @@ export const useGameStore = create<GameStore>((set) => ({
       updated.delete(id);
       return { deadPlayers: updated };
     }),
+
+    addRevivedPlayer: (id: string, position: Position) =>
+        set((state) => ({
+          revivedPlayers: {...state.revivedPlayers, [id]: position}
+        })),
+      removeRevivedPlayer: (id: string) =>
+        set((state) => {
+            const newPlayers = { ...state.revivedPlayers };
+            delete newPlayers[id];
+            return { revivedPlayers: newPlayers };
+        }),
+    addFortressHit: (id: number, health: number) => set((state) => ({
+            fortressHits: {...state.fortressHits, [id]: health}
+        })),
+    
+    removeFortressHit: (id: number) => set((state) => {
+            const newHits = { ...state.fortressHits };
+            delete newHits[id];
+            return { fortressHits: newHits };
+    }),
+    setGameOver: (team: number) => set((state) => ({
+        gameOver: team,
+    })),
+    clearGameOver: () => set((state) => ({
+        gameOver: undefined,
+        game: undefined,
+        playerHits: {},
+        playerPositions: {},
+        playersBullets: {},
+        revivedPlayers: {},
+        deadPlayers: new Set(),
+        fortressHits: {},
+    })),
 }));

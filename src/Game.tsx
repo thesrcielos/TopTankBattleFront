@@ -9,6 +9,7 @@ import bala2Img from '../public/assets/bulletBlueSilver.png';
 import tank2Img from '../public/assets/tankBlue.png';
 import { useGameStore } from './store/Store';
 import { useUser } from './context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Game: React.FC = () => {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -21,6 +22,9 @@ const Game: React.FC = () => {
   const barHeight = 10;
   const barOtherWidth = 32;
   const barOtherHeight = 4;
+  const fortressBarWidth = 16;
+  const fortressBarHeight = 192;
+  const navigate = useNavigate()
 
   useEffect(() => {
     if(gameState === undefined) return;
@@ -39,9 +43,14 @@ const Game: React.FC = () => {
       lastPosition!:{ x: number; y: number; rotation: number } ;
       hpBar!: Phaser.GameObjects.Rectangle;
       hpBarBg!: Phaser.GameObjects.Rectangle;
+      fortress1HpBar!: Phaser.GameObjects.Rectangle;
+      fortress1HpBarBg!: Phaser.GameObjects.Rectangle;
+      fortress2HpBar!: Phaser.GameObjects.Rectangle;
+      fortress2HpBarBg!: Phaser.GameObjects.Rectangle;
       lastSent = Date.now();
       lastFired = 0;
       alive = true;
+      gameOver = false;
 
       preload() {
         this.load.image('tanque', tanqueImg);
@@ -70,6 +79,38 @@ const Game: React.FC = () => {
         this.otherBullets = this.physics.add.group({classType: Phaser.Physics.Arcade.Image});
         this.players = {};
 
+
+        this.fortress1HpBarBg = this.add.rectangle(
+          48,
+          416,
+          fortressBarWidth,
+          fortressBarHeight,
+          0x000000
+        )
+
+        this.fortress1HpBar = this.add.rectangle(
+          48,
+          416,
+          fortressBarWidth,
+          fortressBarHeight,
+          0xff0000
+        )
+
+        this.fortress2HpBarBg = this.add.rectangle(
+          1936,
+          416,
+          fortressBarWidth,
+          fortressBarHeight,
+          0x000000
+        )
+
+        this.fortress2HpBar = this.add.rectangle(
+          1936,
+          416,
+          fortressBarWidth,
+          fortressBarHeight,
+          0xff0000
+        )
 
         this.hpBarBg = this.add.rectangle(
           20,
@@ -101,7 +142,7 @@ const Game: React.FC = () => {
           .setVelocity(0)
           .setMaxVelocity(200);
 
-          
+          sprite.setData("playerId", playerId)
           this.physics.add.collider(sprite, objectLayer);
           this.physics.add.collider(sprite, fortressLayer);
 
@@ -160,7 +201,22 @@ const Game: React.FC = () => {
 
       }
 
-      update(time: number, delta: number) {
+      update(time: number) {
+        if(this.gameOver) return;
+        this.movePlayer();
+        this.checkFireMissile(time);
+        this.handleCleanBullets();
+        this.updatePlayers();
+        this.spawnBullets();
+        this.updateHealthBars();
+        this.handleDeadPlayers();
+        this.handleRevivedPlayers();
+        this.updateFortressHealthBars();
+        this.notifyPlayerMoves();
+        this.checkGameOver()
+      }
+
+      movePlayer(){
         const speed = 100;
         if (this.cursors.left?.isDown || this.wasd.left?.isDown) {
             this.player.setAngularVelocity(-speed);
@@ -177,18 +233,18 @@ const Game: React.FC = () => {
         } else {
             this.player.setVelocity(0, 0);
         }
-
+      }
+      checkFireMissile(time: number){
         if (Phaser.Input.Keyboard.JustDown(this.fireKey) && time > this.lastFired && this.alive) {
-          const offset = 28;
           const angle = this.player.rotation;
-          const startX = this.player.x + Math.cos(angle) * offset;
-          const startY = this.player.y + Math.sin(angle) * offset;
+          const startX = this.player.x;
+          const startY = this.player.y;
           const bullet = this.bullets.get(startX, startY ) as Phaser.Physics.Arcade.Image;
           if (bullet) {
             bullet.setActive(true).setVisible(true).setRotation(angle).setScale(0.7);
             bullet.enableBody(true, startX, startY, true, true);
             this.physics.velocityFromRotation(this.player.rotation, 500, bullet.body.velocity);
-            this.lastFired = time + 300;
+            this.lastFired = time + 350;
             sendMessage(JSON.stringify({
               Type: "SHOOT",
               Payload: {
@@ -200,7 +256,8 @@ const Game: React.FC = () => {
             }));
           }
         }
-
+      }
+      handleCleanBullets(){
         this.bullets.children.iterate((b) => {
           const bullet = b as Phaser.Physics.Arcade.Image;
           if (bullet.active && (bullet.x < 0 || bullet.x > MAP_WIDTH || bullet.y < 0 || bullet.y > MAP_HEIGHT)) {
@@ -214,73 +271,6 @@ const Game: React.FC = () => {
             bullet.setActive(false).setVisible(false);
           }
         });
-
-        this.updatePlayers();
-
-        const bullets = useGameStore.getState().playersBullets;
-        for(let id in bullets){
-          const data = bullets[id];
-
-          const bullet = this.otherBullets.create(data.position.x, data.position.y , data.team1 ? 'bala' : 'bala2') as Phaser.Physics.Arcade.Image;
-          bullet.enableBody(true, data.position.x, data.position.y, true, true);
-          bullet.rotation = data.position.angle;
-          bullet.setScale(0.7);
-          this.physics.velocityFromRotation(data.position.angle, 500, bullet.body.velocity);
-          useGameStore.getState().removeBullet(id);
-        }
-
-        const hits = useGameStore.getState().playerHits;
-        for (let playerId in hits) {
-          const percentage = Phaser.Math.Clamp(hits[playerId] / 60, 0, 1);
-          if(playerId === userId){
-            this.hpBar.width = barWidth*percentage;
-            useGameStore.getState().removeHit(playerId);
-            continue;
-          }
-          let {hpBar} = this.players[playerId];
-          hpBar.width = barOtherWidth*percentage;
-          useGameStore.getState().removeHit(playerId);
-        }
-
-        const deadPlayers = useGameStore.getState().deadPlayers;
-        for(let playerId of deadPlayers){
-          if(playerId === userId){
-            this.player.disableBody(true, true);
-            this.hpBar.width = 0;
-            this.alive = false;
-            continue;
-          }
-
-          let {sprite, hpBar, hpBarBg} = this.players[playerId];
-          sprite.disableBody(true, true);
-          hpBar.setVisible(false);
-          hpBarBg.setVisible(false);
-        }
-
-        const { x, y, rotation } = this.player;
-        let now = Date.now();
-        if (
-            (now - this.lastSent) > 50 && (
-            x !== this.lastPosition.x ||
-            y !== this.lastPosition.y ||
-            rotation !== this.lastPosition.rotation
-            )
-        ) {
-            const message = {
-                type: "MOVE",
-                payload: {
-                    x: x,
-                    y: y,
-                    angle: rotation,
-                },
-            };
-
-            sendMessage(JSON.stringify(message)); 
-            
-            this.lastPosition = { x, y, rotation };
-            this.lastSent = Date.now();
-        }
-
       }
 
       updatePlayers() {
@@ -322,11 +312,173 @@ const Game: React.FC = () => {
           }
         }
       }
+
+      spawnBullets() {
+        const bullets = useGameStore.getState().playersBullets;
       
+        for (let id in bullets) {
+          const data = bullets[id];
+      
+          const bullet = this.otherBullets.create(
+            data.position.x,
+            data.position.y,
+            data.team1 ? "bala" : "bala2"
+          ) as Phaser.Physics.Arcade.Image;
+          bullet.setData("ownerId", data.ownerId);
+      
+          bullet.enableBody(true, data.position.x, data.position.y, true, true);
+          bullet.rotation = data.position.angle;
+          bullet.setScale(0.7);
+          this.physics.velocityFromRotation(data.position.angle, 500, bullet.body.velocity);
+      
+          useGameStore.getState().removeBullet(id);
+        }
+      }
+      
+      updateHealthBars() {
+        const hits = useGameStore.getState().playerHits;
+      
+        for (let playerId in hits) {
+          const percentage = Phaser.Math.Clamp(hits[playerId] / 100, 0, 1);
+      
+          if (playerId === userId) {
+            this.hpBar.width = barWidth * percentage;
+            useGameStore.getState().removeHit(playerId);
+            continue;
+          }
+      
+          let { hpBar } = this.players[playerId];
+          hpBar.width = barOtherWidth * percentage;
+          useGameStore.getState().removeHit(playerId);
+        }
+      }
+
+      handleDeadPlayers() {
+        const deadPlayers = useGameStore.getState().deadPlayers;
+      
+        for (let playerId of deadPlayers) {
+          if (playerId === userId) {
+            this.player.disableBody(true, true);
+            this.hpBar.width = 0;
+            this.alive = false;
+            useGameStore.getState().removeDeadPlayer(playerId);
+            continue;
+          }
+      
+          let { sprite, hpBar, hpBarBg } = this.players[playerId];
+          sprite.disableBody(true, true);
+          hpBar.setVisible(false);
+          hpBarBg.setVisible(false);
+          useGameStore.getState().removeDeadPlayer(playerId);
+        }
+      }
+
+      handleRevivedPlayers() {
+        const revivedPlayers = useGameStore.getState().revivedPlayers;
+      
+        for (let playerId in revivedPlayers) {
+          const position = revivedPlayers[playerId];
+          if (playerId === userId) {
+            this.player.enableBody(true, position.x, position.y, true, true);
+            this.player.setRotation(position.angle);
+            this.hpBar.width = barWidth;
+            this.alive = true;
+            useGameStore.getState().removeRevivedPlayer(playerId);
+            continue;
+          }
+      
+          let { sprite, hpBar, hpBarBg } = this.players[playerId];
+          sprite.enableBody(true, position.x, position.y, true, true);
+          hpBar.width = barOtherWidth;
+          const offsetX = -16;
+          const offsetY = -30;
+          hpBarBg.x = sprite.x + offsetX;
+          hpBarBg.y = sprite.y + offsetY;
+          hpBar.x = sprite.x + offsetX;
+          hpBar.y = sprite.y + offsetY;
+          hpBar.setVisible(true);
+          hpBarBg.setVisible(true);
+          useGameStore.getState().removeRevivedPlayer(playerId);
+        }
+      }
+
+      updateFortressHealthBars() {
+        const hits = useGameStore.getState().fortressHits;
+      
+        for (let fortress in hits) {
+          const percentage = Phaser.Math.Clamp(hits[fortress] / 500, 0, 1);
+      
+          if (Number(fortress) === 1) {
+            this.fortress1HpBar.height = fortressBarHeight * percentage;
+            useGameStore.getState().removeFortressHit(Number(fortress));
+            continue;
+          }
+      
+          this.fortress2HpBar.height = fortressBarHeight * percentage;
+          useGameStore.getState().removeFortressHit(Number(fortress));
+        }
+      }
+
+      notifyPlayerMoves() {
+        const { x, y, rotation } = this.player;
+        let now = Date.now();
+        if (
+            (now - this.lastSent) > 50 && (
+            x !== this.lastPosition.x ||
+            y !== this.lastPosition.y ||
+            rotation !== this.lastPosition.rotation
+            )
+        ) {
+            const message = {
+                type: "MOVE",
+                payload: {
+                    x: x,
+                    y: y,
+                    angle: rotation,
+                },
+            };
+
+            sendMessage(JSON.stringify(message)); 
+            
+            this.lastPosition = { x, y, rotation };
+            this.lastSent = Date.now();
+        }
+      }
+      
+      checkGameOver(){
+        const team = useGameStore.getState().gameOver;
+        if(!team) return;
+        const winner = team === 1? "RED" : "BLUE";
+        const color = team === 1? '#f04343' : '#3875ef'
+        const message = `¡Game Over!\n Winner: ${winner} Team!!`;
+
+        const gameOverText = this.add.text(
+          this.cameras.main.width / 2,
+          this.cameras.main.height / 2,
+          message,
+          {
+            fontSize: '68px',
+            color: color,
+            backgroundColor: '#000000',
+            padding: { x: 20, y: 10 },
+            align: 'center'
+          }
+        ).setOrigin(0.5)
+        .setScrollFactor(0);
+      
+        // Opcional: pausar el juego
+        this.physics.pause();
+        this.gameOver = true
+        useGameStore.getState().clearGameOver()
+        setTimeout(() => {navigate("/lobby")}, 5000);
+      }
 
       hitEnemy = (enemy: Phaser.GameObjects.GameObject, bullet: Phaser.GameObjects.GameObject) => {
         const b = bullet as Phaser.Physics.Arcade.Image;
         const e = enemy as Phaser.Physics.Arcade.Image;
+        const ownerId = b.getData("ownerId");
+        const playerId = e.getData("playerId");
+        if(ownerId && ownerId === playerId) return;
         b.disableBody(true, true);
       };
 
@@ -334,9 +486,8 @@ const Game: React.FC = () => {
         if(this.lastFired > this.time.now || !this.alive) return;
         
         const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, pointer.worldX, pointer.worldY);
-        const offset = 28;
-        const startX = this.player.x + Math.cos(angle) * offset;
-        const startY = this.player.y + Math.sin(angle) * offset;
+        const startX = this.player.x;
+        const startY = this.player.y;
         const bullet = this.bullets.get(startX, startY ) as Phaser.Physics.Arcade.Image;
         if (!bullet) return;
 
@@ -353,7 +504,7 @@ const Game: React.FC = () => {
         // Calcular y aplicar velocidad
         const velocity = this.physics.velocityFromRotation(angle, 500);
         bullet.setVelocity(velocity.x, velocity.y);
-        this.lastFired = this.time.now + 300; 
+        this.lastFired = this.time.now + 350; 
         sendMessage(JSON.stringify({
           Type: "SHOOT",
           Payload: {
@@ -366,13 +517,16 @@ const Game: React.FC = () => {
       }
 
     }
-
     
 
     const config: Phaser.Types.Core.GameConfig = {
       type: Phaser.AUTO,
-      width: 1200,
-      height: 550,
+      width: window.innerWidth,
+      height: window.innerHeight,
+      scale: {
+        mode: Phaser.Scale.FIT,            
+        autoCenter: Phaser.Scale.CENTER_BOTH, 
+      },
       parent: gameRef.current!,
       physics: {
         default: 'arcade',

@@ -43,6 +43,7 @@ export interface Bullet {
 export interface PlayerBullet {
     position: Position;
     team1: boolean;
+    ownerId: string;
 }
 
 export interface Position {
