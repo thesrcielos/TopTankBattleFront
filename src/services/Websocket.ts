@@ -2,10 +2,11 @@ import { useGameStore } from "@/store/Store";
 
 let socket: WebSocket | null = null;
 let retryAttempts = 0;
+const WSUrl = import.meta.env.VITE_WEBSOCKET_URL;
 
 export function connectToWebSocket(token: string) {
   if(socket?.OPEN) return;
-  socket = new WebSocket(`ws://localhost:8080/game?token=${token}`);
+  socket = new WebSocket(`${WSUrl}?token=${token}`);
 
   socket.onopen = () => {
     console.log("✅ Connected WebSocket");
