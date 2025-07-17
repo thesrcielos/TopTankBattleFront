@@ -3,13 +3,15 @@ import { useGameStore } from "@/store/Store";
 let socket: WebSocket | null = null;
 let retryAttempts = 0;
 const WSUrl = import.meta.env.VITE_WEBSOCKET_URL;
+let closed = false;
 
 export function connectToWebSocket(token: string) {
   if(socket?.OPEN) return;
   socket = new WebSocket(`${WSUrl}?token=${token}`);
-
+  closed = false
   socket.onopen = () => {
     console.log("✅ Connected WebSocket");
+    closed = false
     retryAttempts = 0;
   };
 
@@ -47,6 +49,7 @@ export function connectToWebSocket(token: string) {
   };
 
   socket.onclose = () => {
+    if(!closed) return;
     console.warn("🔌 WS closed, retrying...");
     retryAttempts++;
     const delay = Math.min(1000 * 2 ** retryAttempts, 10000); // Max 10s
@@ -59,7 +62,9 @@ export function connectToWebSocket(token: string) {
 }
 
 export function disconnectWS() {
+  console.log("Closing connection")
   socket?.close();
+  closed = true;
 }
 
 export function sendMessage(message: string) {
