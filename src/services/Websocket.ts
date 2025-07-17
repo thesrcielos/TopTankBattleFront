@@ -49,7 +49,7 @@ export function connectToWebSocket(token: string) {
   socket.onclose = () => {
     console.warn("🔌 WS closed, retrying...");
     retryAttempts++;
-    const delay = Math.min(1000 * 2 ** retryAttempts, 5000); // Max 15s
+    const delay = Math.min(1000 * 2 ** retryAttempts, 10000); // Max 10s
     setTimeout(() => connectToWebSocket(token), delay);
   };
 
@@ -60,7 +60,6 @@ export function connectToWebSocket(token: string) {
 
 export function disconnectWS() {
   socket?.close();
-  socket = null
 }
 
 export function sendMessage(message: string) {
