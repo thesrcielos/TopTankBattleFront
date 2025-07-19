@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 
 const RoomLobby: React.FC = () => {
   const {userId, getToken} = useUser();
-  const kicked = useGameStore(state => state.kicked);
   const room = useGameStore(state => state.room);
   const game = useGameStore(state => state.game);
   const setRoom = useGameStore(state => state.setRoom);
@@ -24,30 +23,11 @@ const RoomLobby: React.FC = () => {
   const canStartGame = teamsBalanced && bothTeamsHavePlayers;
   
   useEffect(() => {
-    if(kicked?.id === (userId || "")) {
-      toast.info("You were kicked out of the room by the host " + room.host.username);
-      setRoom( {id: '',
-        name: '',
-        capacity: 0,
-        team1: [],
-        players: 0,
-        team2: [],
-        host: {
-            id: '',
-            username: '',
-        },
-        status: "LOBBY",});
-      navigate("/rooms");
-    }else if(kicked !== undefined){
-      toast.info(kicked.username + " was kicked out of the room by the host " + room.host.username);
-    }
-  },[kicked]);
-  
-  useEffect(() => {
     console.log(room);
     if (room.id !== '') {
       const playerId = userId || '';
       if (playerId !== '') {
+        console.log("Trying connect ws")
         connectToWebSocket(getToken() || "");
       } else {
         alert('User id not found');
@@ -55,7 +35,7 @@ const RoomLobby: React.FC = () => {
         console.error('User not authenticated');
       }
     }
-  }, [room]);
+  }, []);
 
   useEffect(() => {
     if(game !== undefined){
@@ -100,18 +80,6 @@ const RoomLobby: React.FC = () => {
     sendMessage(JSON.stringify(msg));
   }
 
-  const handleKickPlayer = (playerId: string): void => {
-    if (!isHost) return;
-    const kickInfo = {
-      type: "ROOM_KICK",
-      payload: {
-        roomId: room.id,
-        playerId: playerId
-      }
-    }
-    sendMessage(JSON.stringify(kickInfo));
-  }
-
   const TeamCard: React.FC<{ team: 'red' | 'blue', players: any[] }> = ({ team, players }) => {
     const teamColor = team === 'red' ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600';
     const teamBorder = team === 'red' ? 'border-red-500/30' : 'border-blue-500/30';
@@ -150,14 +118,6 @@ const RoomLobby: React.FC = () => {
                     </div>
                   </div>
                   
-                  {isHost && !(player.id === room.host.id) && (
-                    <button
-                      onClick={() => handleKickPlayer(player.id)}
-                      className="text-red-400 hover:text-red-300 px-3 py-1 rounded-md hover:bg-red-500/10 transition-colors font-medium"
-                    >
-                      Kick
-                    </button>
-                  )}
                 </div>
               </div>
             ))}

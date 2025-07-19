@@ -45,3 +45,12 @@ export const loginUser = async ({ username, password }: AuthCredentials): Promis
     }
   };
   
+export const getUserStats = async (id: string) => {
+  try{
+    const response = await axios.get(`${url}/stats/${Number(id)}`)
+    return response.data;
+  }catch (error) {
+    console.error('Error:', error);
+    throw error;
+  }
+}

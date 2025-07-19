@@ -6,7 +6,7 @@ const WSUrl = import.meta.env.VITE_WEBSOCKET_URL;
 let closed = false;
 
 export function connectToWebSocket(token: string) {
-  if(socket?.OPEN) return;
+  if(socket && socket.readyState === WebSocket.OPEN) return;
   socket = new WebSocket(`${WSUrl}?token=${token}`);
   closed = false
   socket.onopen = () => {
