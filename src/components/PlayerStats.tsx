@@ -239,6 +239,7 @@ const PlayerStatsPage: React.FC = () => {
   const fetchStats = async () => {
     try{
         const data = await getUserStats(userId || "");
+        console.log(data)
         setStats(data);
     }catch(error: any){
         if (error.response) {

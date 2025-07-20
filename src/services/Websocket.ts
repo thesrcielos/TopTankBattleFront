@@ -49,11 +49,16 @@ export function connectToWebSocket(token: string) {
   };
 
   socket.onclose = () => {
-    if(!closed) return;
+    if(closed) return;
+    console.log(closed);
     console.warn("🔌 WS closed, retrying...");
     retryAttempts++;
     const delay = Math.min(1000 * 2 ** retryAttempts, 10000); // Max 10s
-    setTimeout(() => connectToWebSocket(token), delay);
+    setTimeout(() => {
+      if(socket || !closed){
+        connectToWebSocket(token)
+      }
+  }, delay);
   };
 
   socket.onerror = (error) => {
@@ -63,8 +68,9 @@ export function connectToWebSocket(token: string) {
 
 export function disconnectWS() {
   console.log("Closing connection")
-  socket?.close();
   closed = true;
+  socket?.close();
+  socket = null;
 }
 
 export function sendMessage(message: string) {
