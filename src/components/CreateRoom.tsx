@@ -45,10 +45,15 @@ const CreateRoom: React.FC = () => {
       capacity: formData.maxPlayers,
       player: parseInt(userId || '-1')
     }
-    const response = await createRoom(room);
-    if (response.room) {
-      setRoom(response.room);
-      navigate(`/lobby`);
+    try{
+      const response = await createRoom(room);
+      if (response.room) {
+        setRoom(response.room);
+        navigate(`/lobby`);
+      }
+    }catch(err){
+      console.log(err)
+      setIsCreating(false);
     }
     setIsCreating(false);
   };
