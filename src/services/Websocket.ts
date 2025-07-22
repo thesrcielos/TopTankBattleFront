@@ -13,6 +13,11 @@ export function connectToWebSocket(token: string) {
     console.log("✅ Connected WebSocket");
     closed = false
     retryAttempts = 0;
+    setInterval(() => {
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 30000);
   };
 
   socket.onmessage = (event) => {
@@ -41,7 +46,7 @@ export function connectToWebSocket(token: string) {
     }else if(data.type === "PLAYER_REVIVED"){
       useGameStore.getState().addRevivedPlayer(payload.playerId, payload.position);
     }else if(data.type === "FORTRESS_HIT"){
-      let id = payload.team1 ? 1: 2;
+      const id = payload.team1 ? 1: 2;
       useGameStore.getState().addFortressHit(id, payload.health);
     }else if(data.type === "GAME_OVER"){
       useGameStore.getState().setGameOver(payload.team1 ? 1 : 2);

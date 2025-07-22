@@ -75,10 +75,13 @@ const RoomLobby: React.FC = () => {
       payload: {
         roomId: room.id
       },
-    }
-
-    sendMessage(JSON.stringify(msg));
-  }
+    };
+  
+    setTimeout(() => {
+      sendMessage(JSON.stringify(msg));
+    }, 1100); 
+  };
+  
 
   const TeamCard: React.FC<{ team: 'red' | 'blue', players: any[] }> = ({ team, players }) => {
     const teamColor = team === 'red' ? 'from-red-500 to-red-600' : 'from-blue-500 to-blue-600';
