@@ -287,7 +287,9 @@ const Game: React.FC = () => {
       
         for (const id in players) {
           if (id === userId) continue;
-      
+          if(!this.players[id]){
+            return;
+          }
           const data = players[id];
           let { sprite, hpBarBg, hpBar } = this.players[id];
       
@@ -355,7 +357,9 @@ const Game: React.FC = () => {
             useGameStore.getState().removeHit(playerId);
             continue;
           }
-      
+          if(!this.players[playerId]){
+            return;
+          }
           let { hpBar } = this.players[playerId];
           hpBar.width = barOtherWidth * percentage;
           useGameStore.getState().removeHit(playerId);
@@ -373,7 +377,9 @@ const Game: React.FC = () => {
             useGameStore.getState().removeDeadPlayer(playerId);
             continue;
           }
-      
+          if(!this.players[playerId]){
+            return;
+          }
           let { sprite, hpBar, hpBarBg } = this.players[playerId];
           sprite.disableBody(true, true);
           hpBar.setVisible(false);
@@ -395,8 +401,10 @@ const Game: React.FC = () => {
             useGameStore.getState().removeRevivedPlayer(playerId);
             continue;
           }
-      
-          let { sprite, hpBar, hpBarBg } = this.players[playerId];
+          if(!this.players[playerId]){
+            return;
+          }
+          const { sprite, hpBar, hpBarBg } = this.players[playerId];
           sprite.enableBody(true, position.x, position.y, true, true);
           hpBar.width = barOtherWidth;
           const offsetX = -16;
