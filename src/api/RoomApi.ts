@@ -6,7 +6,7 @@ const url: string = import.meta.env.VITE_BACKEND_URL + "/api/v1/rooms";
 
 export const getRooms = async () => {
     try {
-        const response = await api.get(url + "?page=0&size=20");
+        const response = await api.get(url + "?page=0&size=40");
         return response.data;
     } catch (error) {
         console.error("Error fetching rooms:", error);

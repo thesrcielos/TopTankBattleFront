@@ -57,6 +57,11 @@ const TopTankBattleAuth = () => {
         return;
       }
     } else {
+      if(registerData.password.length < 8) {
+        setError("Password length must be at least 8 characters long.");
+        setLoading(false);
+        return;
+      }
       try{
         response = await signup(data);
       }catch(e: any){

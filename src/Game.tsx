@@ -288,7 +288,7 @@ const Game: React.FC = () => {
         for (const id in players) {
           if (id === userId) continue;
           if(!this.players[id]){
-            return;
+            continue;
           }
           const data = players[id];
           let { sprite, hpBarBg, hpBar } = this.players[id];
@@ -358,7 +358,7 @@ const Game: React.FC = () => {
             continue;
           }
           if(!this.players[playerId]){
-            return;
+            continue;
           }
           let { hpBar } = this.players[playerId];
           hpBar.width = barOtherWidth * percentage;
@@ -378,7 +378,7 @@ const Game: React.FC = () => {
             continue;
           }
           if(!this.players[playerId]){
-            return;
+            continue;
           }
           let { sprite, hpBar, hpBarBg } = this.players[playerId];
           sprite.disableBody(true, true);
@@ -402,7 +402,7 @@ const Game: React.FC = () => {
             continue;
           }
           if(!this.players[playerId]){
-            return;
+            continue;
           }
           const { sprite, hpBar, hpBarBg } = this.players[playerId];
           sprite.enableBody(true, position.x, position.y, true, true);
