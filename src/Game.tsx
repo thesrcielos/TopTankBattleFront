@@ -432,7 +432,7 @@ const Game: React.FC = () => {
         const { x, y, rotation } = this.player;
         let now = Date.now();
         if (
-            (now - this.lastSent) > 50 && (
+            (now - this.lastSent) > 40 && (
             x !== this.lastPosition.x ||
             y !== this.lastPosition.y ||
             rotation !== this.lastPosition.rotation
